@@ -2,58 +2,41 @@ FROM debian:buster
 
 LABEL key="Repositório criado para prova de conceito de exercicio 42SP"
 
-WORKDIR /config
+WORKDIR /ft_server
 
-COPY ./srcs ./
+ENV N_AUTOINDEX 1
 
 #Atualização de sistema
 RUN apt-get update -y && apt-get upgrade -y
 
 #Instalação dos php e servidores
-RUN apt-get install mariadb-server php-fpm php-mysql php-mbstring php-zip php-gd nginx -y
+RUN apt-get install mariadb-server \
+    php-fpm php-mysql \
+    nginx -y
 
-#Instalação e configuração phpadmin
-RUN tar -xf phpmyadmin.tar.gz
-#RUN mv phpMyAdmin-5.0.4-all-languages /var/www/phpmyadmin
+COPY ./srcs ./
 
-#Configuração wordpress
-RUN tar -xf wordpress.tar.gz 
+#configuração de servicos
+COPY ./srcs/sites /var/www/sites
 
-#Retirando arquivos default
-RUN rm /etc/nginx/sites-available/default
-RUN rm /etc/nginx/sites-enabled/default
+#Removendo configuração original
+RUN rm /etc/nginx/sites-available/default && rm /etc/nginx/sites-enabled/default
 
 #Copiando e linkando arquivos de configuração nginx
-RUN cp ./config/nginx.conf /etc/nginx/sites-available/nginx.conf
-#RUN cp ./config/phpadmin.conf /etc/nginx/sites-available/phpadmin.conf
-RUN cp ./config/php.ini /etc/php/7.3/fpm/php.ini
+COPY ./srcs/config/* /etc/nginx/sites-available/
 
 #Criando links simbolicos
-RUN ln -s /etc/nginx/sites-available/nginx.conf /etc/nginx/sites-enabled/nginx.conf
-#RUN ln -s /etc/nginx/sites-available/phpadmin.conf /etc/nginx/sites-enabled/phpadmin.conf
+RUN ln -s /etc/nginx/sites-available/* /etc/nginx/sites-enabled/
 
-#Copiando arquivos de sites
-RUN cp ./sites/info.php /var/www/html/info.php
+#Implementacao de chaves e certificados
+COPY ./srcs/ssl /etc/ssl
+RUN rm -rf config && rm -rf php.ini && rm -rf ssl
+#Limpando programas desnecessarios
+RUN apt-get autoremove && apt-get autoclean
 
-
-#RUN mv wordpress /var/www/wordpress
-#Configuração nginx
-#RUN mv ./config/phpadmin_server.conf /etc/nginx/sites-available/phpadmin_server.conf
-#RUN mv ./config/wordpress_server.conf /etc/nginx/sites-available/wordpress_server.conf
-#RUN rm /etc/nginx/sites-enabled/default
-#RUN ln -s /etc/nginx/sites-available/phpadmin_server.conf /etc/nginx/sites-enabled/phpadmin_server.conf
-#RUN ln -s /etc/nginx/sites-available/wordpress_server.conf /etc/nginx/sites-enabled/wordpress_server.conf
-
-RUN mkdir -p /var/www/phpadmin
-#RUN chown user-da-sua-app:user-da-sua-app /var/www/sua-app
-
-RUN cd ..
-
-#Limpando documentos programas e documentos desnecessários
-RUN rm -rf ./config
-RUN apt-get autoremove
-RUN apt-get autoclean
+#limpando documentos desnecessarios
+RUN rm -rf sites;
 
 EXPOSE 80/tcp 443/tcp
 
-ENTRYPOINT ["sh", "config.sh"]
+ENTRYPOINT ["bash", "./scripts/config.sh"]
